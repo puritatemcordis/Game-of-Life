@@ -1,9 +1,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
-#include <chrono>
-#include <thread>
-#include <ctime>
 #include <signal.h>
 
 //type defition for integer pointer
@@ -20,7 +17,9 @@ void ClearScreen();
 void PrintMatrix(IntPtr Matrix[], int row, int column);
 void InitializeMatrix(IntPtr Matrix[], int row, int column);
 void RandomMatrix(IntPtr Matrix[], int row, int column);
-void DetermineStatus(IntPtr Matrix[], int row, int column);
+void CopyMatrix(IntPtr Matrix[], IntPtr Matrix2[], int row, int column);
+bool CompareMatrix(IntPtr Matrix[], IntPtr Matrix2[], int row, int column);
+bool DetermineStatus(IntPtr Matrix[], int row, int column);
 void FreeArrays(IntPtr Matrix[], int row);
 void Alert(int sig);
 
@@ -31,13 +30,16 @@ int main(){
   //declaration and initialization of answer, Matrix[MAX_R], generationNum, r, c, r_cell, and c_cell
   char answer = ' ';
   IntPtr Matrix[MAX_R]; //2D dynamic array
-  int generationNum = 1; //used to display the generation of the cell
   int r = MAX_R, c = MAX_C; //user inputted values for their rows and columns
   int r_cell = 1, c_cell = 1; //used to iterate through the rows and columns of the 2D Array
+  bool status;
 
   ClearScreen();
   answer = Greeting(); //asks the user if they want to play the game
   while (answer == 'Y'){
+    int generationNum = 1; //used to display the generation of the cell
+    flag = 0; //resets flag, so everytime game restarts, game will continue
+
     //do while loop that asks the user to input their the row and column of the matrix; boundary check to ensure cell matrix is within the terminal display
     do {
       printf("\nEnter number of rows for the matrix (CANNOT be greater than %d.): ", 39);
@@ -87,7 +89,12 @@ int main(){
     while (true){
       printf("Generation %d:\n", generationNum);
       PrintMatrix(Matrix, r, c);
-      DetermineStatus(Matrix, r, c); //iterates through the matrix and determines which cells have been born, survived, or died
+      status = DetermineStatus(Matrix, r, c); //iterates through the matrix and determines which cells have been born, survived, or died
+      if(status == true){
+        std::cout << "From this generation onward, the matrix will not change." << std::endl;
+        std::cout << "Game Over" << std::endl;
+        break; //previous generation and current generation will be the same thus, game is over
+      }
       std::cout << "Press any key to continue ... " << std::endl;
       std::cout << "To end program, hit \"ctrl + c\" and press any key ..." << std::endl;
       std::cin.get();
@@ -205,12 +212,46 @@ void InitializeMatrix(IntPtr Matrix[], int row, int column){
 }
 
 /*
+Copies the contents from the original Matrix to Matrix2
+@param Matrix[]: integer pointer array that has dynamically allocated memory for the values in the array, which will later be freed
+@param Matrix2[]: integer pointer array that has dynamically allocated memory for the values in the array, which is empty with zeros
+@param row: user input of the amount of desired rows
+@param column: user input of the amount of desired columns
+*/
+void CopyMatrix(IntPtr Matrix[], IntPtr Matrix2[], int row, int column){
+  for(int i = 1; i < row-1; i++){
+    for(int j = 1; j < column-1; j++){
+      Matrix2[i][j] = Matrix[i][j];
+    }
+  }
+}
+/*
+Checks to see if both matrixes are equivalent; if they are, end the game
+@param Matrix[]: integer pointer array that has dynamically allocated memory for the values in the array, which will later be freed
+@param Matrix2[]: integer pointer array that has dynamically allocated memory for the values in the array, which is empty with zeros
+@param row: user input of the amount of desired rows
+@param column: user input of the amount of desired columns
+*/
+bool CompareMatrix(IntPtr Matrix[], IntPtr Matrix2[], int row, int column){
+  for(int i = 1; i < row-1; i++){
+    for(int j = 1; j < column-1; j++){
+      if(Matrix2[i][j] != Matrix[i][j]) return false;
+    }
+  }
+  return true;
+}
+
+/*
 Determines whether a cell is born, survives, or dies based on matrix values
 @param Matrix[]: integer pointer array that has dynamically allocated memory for the values in the array, which will later be freed
 @param row: user input of the amount of desired rows
 @param column: user input of the amount of desired columns
 */
-void DetermineStatus(IntPtr Matrix[], int row, int column){
+bool DetermineStatus(IntPtr Matrix[], int row, int column){
+  IntPtr Matrix2[MAX_R];
+  InitializeMatrix(Matrix2, row, column);
+  CopyMatrix(Matrix, Matrix2, row, column);
+
   //nested for loop: i and j are the coordinates for the current matrix value
   for(int i = 1; i < row-1; i++){
     for(int j = 1; j < column-1; j++){
@@ -220,18 +261,19 @@ void DetermineStatus(IntPtr Matrix[], int row, int column){
       for(int k = -1; k < 2; k++){
         for(int l = -1; l < 2; l++){
           if(k == 0 && l == 0) continue; //skips pass current matrix value
-          else if (Matrix[i+k][j+l] == 1) adjacentCells++; //increments adjacent cells if the matrix[k][l] = 1 (1 = cell; 0 = no cell)
+          else if (Matrix2[i+k][j+l] == 1) adjacentCells++; //increments adjacent cells if the matrix[k][l] = 1 (1 = cell; 0 = no cell)
         }
       }
 
       //conditions based upon the rules of the game
-      if(Matrix[i][j] == 0 && adjacentCells == 3) Matrix[i][j] = 1; //cell is born in the cell itself has the value of "0" and it has 3 adjacent cells around it
-      else if (Matrix[i][j] == 1 && (adjacentCells == 3 || adjacentCells == 2)) Matrix[i][j] = 1; //cell survives if the cell itself has the value of "1" and it has 2-3 adjacent cells around it
-      else if (Matrix[i][j] == 1 && (adjacentCells > 3 || adjacentCells < 2)) Matrix[i][j] = 0; //cell dies if it has more than 4 cells around it or less than 2 cells around it
+      if(Matrix2[i][j] == 0 && adjacentCells == 3) Matrix[i][j] = 1; //cell is born in the cell itself has the value of "0" and it has 3 adjacent cells around it
+      else if (Matrix2[i][j] == 1 && (adjacentCells == 3 || adjacentCells == 2)) Matrix[i][j] = 1; //cell survives if the cell itself has the value of "1" and it has 2-3 adjacent cells around it
+      else if (Matrix2[i][j] == 1 && (adjacentCells > 3 || adjacentCells < 2)) Matrix[i][j] = 0; //cell dies if it has more than 4 cells around it or less than 2 cells around it
       else Matrix[i][j] = 0; //default: assigns 0 to coordinate of matrix if none of the previous conditions apply
-
     }
   }
+
+  return CompareMatrix(Matrix, Matrix2, row, column);
 }
 
 /*
